@@ -25,16 +25,13 @@ currentTime = now.strftime('%H-%M-%S')
 timestamp = currentDate + "-" + currentTime
 filesSaved = []
 
-def _run_command(command, results, lineHost, session):
+def _run_command(prompt, command, results, lineHost, session):
     output = str()
-    prompt = session.before
-    promptnew = prompt.split('\n')
-    prompt = str(promptnew[-1])
-    output += '\n******************************\n' + 'Host -> ' + lineHost.strip() \
-              + '\n' + 'Command -> ' + command + '\n\n'
+    output += '\n' + '*'*30 + '\n' + 'Host -> ' + lineHost.strip() \
+              + '\nCommand -> ' + command + '\nPrompt -> ' + prompt + '\n\n'
     session.sendline(command)
-    session.expect(prompt + r'> $', timeout=120)
-    output += session.before
+    session.expect(prompt + r'>.*|#.*', timeout=3)
+    output += session.before.decode("utf-8")
     if args.v:
         print(output)
     results.write(output)
@@ -47,15 +44,15 @@ if not args.command:
 if not args.host:
     hosts = input("Enter hosts filename: ")
 
-print("Username:",username)
+print("Username: {user}".format(user=username))
 if args.command:
-    print("Input commands:",args.command)
+    print("Input commands: {command}".format(command=args.command))
 else:
-    print("Input commands file:",commands)
+    print("Input commands file: {inputcommands}".format(inputcommands=commands))
 if args.host:
-    print("Host list:",args.host)
+    print("Host list: {hostlist}".format(hostlist=args.host))
 else:
-    print("Host file:",hosts)
+    print("Host file: {hostfile}".format(hostfile=hosts))
 runScript = input("script will run with the above configuration... procede? Y/N: ")
 runScript = str.lower(runScript)
 
@@ -70,7 +67,7 @@ if runScript == "y":
             exCommands = map(lambda s: s.strip(), exCommands)
             commandsFile.close()
         except IOError:
-            print("ERROR::File not found",commands)
+            print("ERROR::File not found {commandserror}".format(commandserror=commands))
             exit(0)
     # read hosts into list
     if args.host:
@@ -81,38 +78,42 @@ if runScript == "y":
             hostList = hostsFile.readlines()
             hostsFile.close()
         except IOError:
-            print("ERROR::File not found",hosts)
+            print("ERROR::File not found {hostserror}".format(hostserror=hosts))
             exit(0)
     for lineHost in hostList:
-        print("Running commands for",lineHost.strip(),"...please wait")
+        print("Running commands for {currenthost}...please wait".format(currenthost=lineHost.strip()))
         try:
             session = pexpect.spawn(
                 "ssh -l " + username + " -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no "
                 "-o PubkeyAuthentication=no " + lineHost.strip(), timeout=3, maxread=65535)
             session.expect('.*assword.')
             session.sendline(password)
-            session.expect(r'> $')
+            session.expect(r'>.*')
         except:
-            print("Unable to connect to",lineHost.strip(),"using ssh... trying telnet")
+            print("Unable to connect to {host} using ssh... trying telnet".format(host=lineHost.strip()))
             try:
                 session = pexpect.spawn("telnet " + lineHost.strip(), timeout=3, maxread=65535)
                 session.expect('sername.')
                 session.sendline(username)
                 session.expect('.*assword.')
                 session.sendline(password)
-                session.expect(r'> $')
+                session.expect(r'>.*')
             except:
-                print("Unable to connect to",lineHost.strip(),"using telnet... giving up\n")
+                print("Unable to connect to {host} using telnet... giving up\n".format(host=lineHost.strip()))
                 failedhosts.append(lineHost.strip())
                 continue
         filesSaved.append(lineHost.strip() + "-" + timestamp)
         results = open(lineHost.strip() + "-" + timestamp, 'w')
         session.sendline("set cli screen-length 0")
-        session.expect(r'> $')
+        session.expect(r'>.*')
+        prompt = session.before
+        prompt = prompt.decode("utf-8")
+        promptnew = prompt.split('\n')
+        prompt = str(promptnew[-1])
         for lineCommand in exCommands:
-            _run_command(lineCommand, results, lineHost, session)
+            _run_command(prompt, lineCommand, results, lineHost, session)
         session.sendline("exit")
-        output = '\n******************************\n***********complete***********\n******************************\n'
+        output = '\n' + '*'*30 + '\n' + '*'*11 + 'complete' + '*'*11 + '\n' + '*'*30 + '\n'
         if args.v:
             print(output)
         results.write(output)
@@ -127,6 +128,6 @@ if runScript == "y":
     if len(failedhosts) > 0:
         print("Unable to connect to the following hosts:\n")
         for failed in failedhosts:
-            print(failed)
+            print("{fhost}".format(fhost=failed))
 else:
     exit(0)
