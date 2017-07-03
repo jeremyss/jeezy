@@ -3,6 +3,7 @@ import datetime
 import argparse
 import getpass
 import pexpect
+import time
 
 _author__ = "Jeremy Scholz"
 
@@ -30,7 +31,8 @@ def _run_command(prompt, command, results, lineHost, session):
     output += '\n' + '*'*30 + '\n' + 'Host -> ' + lineHost.strip() \
               + '\nCommand -> ' + command + '\nPrompt -> ' + prompt + '\n\n'
     session.sendline(command)
-    session.expect(prompt + r'>.*|#.*', timeout=3)
+    time.sleep(2)
+    session.expect(prompt + r'>.*|#.*', timeout=120)
     output += session.before.decode("utf-8")
     if args.v:
         print(output)
@@ -82,14 +84,14 @@ if runScript == "y":
         try:
             session = pexpect.spawn(
                 "ssh -l " + username + " -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no "
-                "-o PubkeyAuthentication=no " + lineHost.strip(), timeout=3, maxread=65535)
+                "-o PubkeyAuthentication=no " + lineHost.strip(), timeout=5, maxread=65535)
             session.expect('.*assword.')
             session.sendline(password)
             session.expect(r'>.*')
         except:
             print("Unable to connect to {host} using ssh... trying telnet".format(host=lineHost.strip()))
             try:
-                session = pexpect.spawn("telnet " + lineHost.strip(), timeout=3, maxread=65535)
+                session = pexpect.spawn("telnet " + lineHost.strip(), timeout=5, maxread=65535)
                 session.expect('sername.')
                 session.sendline(username)
                 session.expect('.*assword.')
