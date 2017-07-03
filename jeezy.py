@@ -62,10 +62,8 @@ if runScript == "y":
         exCommands = args.command.split(',')
     else:
         try:
-            commandsFile = open(commands, 'r')
-            exCommands = commandsFile.readlines()
-            exCommands = map(lambda s: s.strip(), exCommands)
-            commandsFile.close()
+            with open (commands, 'r') as exCommands:
+                exCommands = exCommands.read().splitlines()
         except IOError:
             print("ERROR::File not found {commandserror}".format(commandserror=commands))
             exit(0)
@@ -74,9 +72,8 @@ if runScript == "y":
         hostList = args.host.split(',')
     else:
         try:
-            hostsFile = open(hosts, 'r')
-            hostList = hostsFile.readlines()
-            hostsFile.close()
+            with open (hosts, 'r') as hostList:
+                hostList = hostList.read().splitlines()
         except IOError:
             print("ERROR::File not found {hostserror}".format(hostserror=hosts))
             exit(0)
