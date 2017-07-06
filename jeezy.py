@@ -32,7 +32,7 @@ def _run_command(prompt, command, results, lineHost, session):
               + '\nCommand -> ' + command + '\nPrompt -> ' + prompt + '\nMatch -> ' + str(session.after) + '\n\n'
     session.sendline(command)
     time.sleep(2)
-    session.expect(prompt + r'> $|# $', timeout=120)
+    session.expect(prompt + r'> *$|# *$', timeout=120)
     output += session.before.decode("utf-8") + session.after.decode("utf-8")
     if args.v:
         print(output)
