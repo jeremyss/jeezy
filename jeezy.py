@@ -4,7 +4,7 @@ import argparse
 import getpass
 import pexpect
 import time
-
+#TODO Clean up un-needed comments
 _author__ = "Jeremy Scholz"
 
 parser = argparse.ArgumentParser(description='Remote networking device command processor')
@@ -50,6 +50,7 @@ def _get_prompt(thisprompt, args, enablepass):
         '''else:
             #print("now we are here 2")
             session.expect(r'# *')'''
+    # TODO complete Aruba prompt
     elif args.a:
         if session.expect(r'> *'):
             session.sendline("enable")
