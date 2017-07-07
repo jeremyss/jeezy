@@ -47,6 +47,14 @@ def _get_prompt(thisprompt, args, enablepass):
             session.expect(r'assword.*')
             session.sendline(enablepass)
             session.expect(r'# *')
+        elif thisprompt == b'> ':
+                # print("now we are here 1")
+                session.sendline("enable")
+                # print(session.before)
+                # print(session.after)
+                session.expect(r'assword.*')
+                session.sendline(enablepass)
+                session.expect(r'# *')
         '''else:
             #print("now we are here 2")
             session.expect(r'# *')'''
@@ -65,8 +73,12 @@ def _set_paging(session, args):
         session.sendline("no paging")
         session.expect(r'# *')
     elif args.c:
-        session.sendline("term length 0")
-        session.expect(r'# *')
+        try:
+            session.sendline("term length 0")
+            session.expect(r'# *')
+        except:
+            session.sendline("terminal pager 0")
+            session.expect(r'# *')
     elif args.j:
         session.sendline("set cli screen-length 0")
         session.expect(r'> *')
