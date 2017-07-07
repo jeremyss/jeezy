@@ -9,9 +9,14 @@ _author__ = "Jeremy Scholz"
 
 parser = argparse.ArgumentParser(description='Remote networking device command processor')
 parser.add_argument('-v', action='store_true', help='Output results to terminal')
+parser.add_argument('-enable', action='store_true', help='Cisco enable password')
 parser.add_argument('-host', type=str, help='Host(s) to run command on, separate multiple hosts with comma')
 parser.add_argument('-command', type=str,
                     help='Command(s) to run enclosed in \'\', separate multiple commands with comma')
+reqarg = parser.add_mutually_exclusive_group(required=True)
+reqarg.add_argument('-a', action='store_true', help='Aruba Device')
+reqarg.add_argument('-c', action='store_true', help='Cisco IOS Device')
+reqarg.add_argument('-j', action='store_true', help='Juniper Device')
 args = parser.parse_args()
 
 command = []
@@ -25,6 +30,45 @@ currentDate = now.strftime('%m-%d-%Y')
 currentTime = now.strftime('%H-%M-%S')
 timestamp = currentDate + "-" + currentTime
 filesSaved = []
+
+def _get_prompt(thisprompt, args, enablepass):
+    #print(args)
+    #session.expect(r'> *|# *')
+    #print(thisprompt)
+    #print(session.before)
+    if args.c:
+        #print("we are here")
+        #print(thisprompt)
+        if thisprompt == b'>':
+            #print("now we are here 1")
+            session.sendline("enable")
+            #print(session.before)
+            #print(session.after)
+            session.expect(r'assword.*')
+            session.sendline(enablepass)
+            session.expect(r'# *')
+        '''else:
+            #print("now we are here 2")
+            session.expect(r'# *')'''
+    elif args.a:
+        if session.expect(r'> *'):
+            session.sendline("enable")
+            session.expect(r'assord *')
+            session.sendline(enablepass)
+            session.expect(r'# *')
+    '''elif args.j:
+        session.expect(r'> *')'''
+
+def _set_paging(session, args):
+    if args.a:
+        session.sendline("no paging")
+        session.expect(r'# *')
+    elif args.c:
+        session.sendline("term length 0")
+        session.expect(r'# *')
+    elif args.j:
+        session.sendline("set cli screen-length 0")
+        session.expect(r'> *')
 
 def _run_command(prompt, command, results, lineHost, session):
     output = str()
@@ -41,6 +85,10 @@ def _run_command(prompt, command, results, lineHost, session):
 username = input("Enter your username: ")
 password = getpass.getpass("Enter your password: ")
 
+if args.enable:
+    enablepass = getpass.getpass("Enter enable password: ")
+else:
+    enablepass = ''
 if not args.command:
     commands = input("Enter commands list filename: ")
 if not args.host:
@@ -87,7 +135,7 @@ if runScript == "y":
                 "-o PubkeyAuthentication=no " + lineHost.strip(), timeout=5, maxread=65535)
             session.expect('.*assword.')
             session.sendline(password)
-            session.expect(r'>.*')
+            session.expect(r'> *|# *')
         except:
             print("Unable to connect to {host} using ssh... trying telnet".format(host=lineHost.strip()))
             try:
@@ -96,19 +144,23 @@ if runScript == "y":
                 session.sendline(username)
                 session.expect('.*assword.')
                 session.sendline(password)
-                session.expect(r'>.*')
+                session.expect(r'> *|# *')
             except:
                 print("Unable to connect to {host} using telnet... giving up\n".format(host=lineHost.strip()))
                 failedhosts.append(lineHost.strip())
                 continue
         filesSaved.append(lineHost.strip() + "-" + timestamp)
         results = open(lineHost.strip() + "-" + timestamp, 'w')
-        session.sendline("set cli screen-length 0")
-        session.expect(r'>.*')
+        #session.sendline("set cli screen-length 0")
+
+
+        #session.expect(r'> *')
         prompt = session.before
         prompt = prompt.decode("utf-8")
         promptnew = prompt.split('\n')
         prompt = str(promptnew[-1])
+        _get_prompt(session.after, args, enablepass)
+        _set_paging(session, args)
         for lineCommand in exCommands:
             _run_command(prompt, lineCommand, results, lineHost, session)
         session.sendline("exit")
