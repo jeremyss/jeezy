@@ -100,7 +100,7 @@ def run_command(prompt, command, results, lineHost, session, args):
     output += '\n' + '*'*30 + '\n' + 'Host -> ' + lineHost.strip() \
               + '\nCommand -> ' + command + '\nPrompt -> ' + prompt + '\nMatch -> ' + str(session.after) + '\n\n'
     session.sendline(command)
-    time.sleep(2)
+    time.sleep(.5)
     session.expect(prompt + r'> *$|# *$', timeout=120)
     output += session.before.decode("utf-8") + session.after.decode("utf-8")
     #check Juniper commit for failures
