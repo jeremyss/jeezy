@@ -27,7 +27,7 @@ def verify_commands(exCommands, args):
                 exCommands[c1] = "commit check"
                 exCommands[c2] = "commit"
 
-def get_prompt(thisprompt, args, enablepass):
+def get_prompt(session, thisprompt, args, enablepass):
     """
 
     This function will match for the device prompt and send the enable password
@@ -101,26 +101,27 @@ def run_command(prompt, command, results, lineHost, session, args):
               + '\nCommand -> ' + command + '\nPrompt -> ' + prompt + '\nMatch -> ' + str(session.after) + '\n\n'
     session.sendline(command)
     time.sleep(.5)
-    session.expect(prompt + r'> *$|# *$', timeout=120)
-    output += session.before.decode("utf-8") + session.after.decode("utf-8")
-    #check Juniper commit for failures
-    if args.j:
-        if command == "commit check":
-            if "error: configuration check-out failed" in output:
-                session.sendline("rollback 0")
-                time.sleep(2)
-                session.expect(prompt + r'> *$|# *$', timeout=120)
-                output += session.before.decode("utf-8") + session.after.decode("utf-8")
-                session.sendline("exit")
-                time.sleep(2)
-                session.expect(prompt + r'> *$|# *$', timeout=120)
-                output += session.before.decode("utf-8") + session.after.decode("utf-8")
-                commitfailed = True
+    if session.isalive():
+        session.expect(prompt + r'> *$|# *$', timeout=120)
+        output += session.before.decode("utf-8") + session.after.decode("utf-8")
+        #check Juniper commit for failures
+        if args.j:
+            if command == "commit check":
+                if "error: configuration check-out failed" in output:
+                    session.sendline("rollback 0")
+                    time.sleep(2)
+                    session.expect(prompt + r'> *$|# *$', timeout=120)
+                    output += session.before.decode("utf-8") + session.after.decode("utf-8")
+                    session.sendline("exit")
+                    time.sleep(2)
+                    session.expect(prompt + r'> *$|# *$', timeout=120)
+                    output += session.before.decode("utf-8") + session.after.decode("utf-8")
+                    commitfailed = True
 
-    if args.v:
-        print(output)
-    results.write(output)
-    return commitfailed
+        if args.v:
+            print(output)
+        results.write(output)
+        return commitfailed
 
 def main():
 
@@ -227,14 +228,15 @@ def main():
             prompt = prompt.decode("utf-8")
             promptnew = prompt.split('\n')
             prompt = str(promptnew[-1])
-            get_prompt(session.after, args, enablepass)
+            get_prompt(session, session.after, args, enablepass)
             set_paging(session, args)
             for lineCommand in exCommands:
                 failedcommit = run_command(prompt, lineCommand, results, lineHost, session, args)
                 if failedcommit:
                     rolledback.append(lineHost.strip())
                     break
-            session.sendline("exit")
+            if session.isalive():
+                session.sendline("exit")
             output = '\n' + '*'*30 + '\n' + '*'*11 + 'complete' + '*'*11 + '\n' + '*'*30 + '\n'
             if args.v:
                 print(output)
