@@ -4,6 +4,7 @@ import argparse
 import getpass
 import pexpect
 import time
+import re
 
 _author__ = "Jeremy Scholz"
 
@@ -17,15 +18,16 @@ def verify_commands(exCommands, args):
     """
     #Check Juniper device commands
     if args.j:
-        if "commit" in exCommands and "commit check" not in exCommands:
-            commitid = exCommands.index("commit")
-            exCommands.insert(commitid, "commit check")
-        elif "commit" and "commit check" in exCommands:
-            if exCommands.index("commit") < exCommands.index("commit check"):
-                c1 = exCommands.index("commit")
-                c2 = exCommands.index("commit check")
-                exCommands[c1] = "commit check"
-                exCommands[c2] = "commit"
+        findcommit = re.compile('^commit$|^commit comment.*')
+        commandsre = filter(findcommit.match, exCommands)
+        for commitidx in commandsre:
+            if commitidx in exCommands and "commit check" not in exCommands:
+                exCommands.insert(exCommands.index(commitidx), "commit check")
+            if exCommands.index(commitidx) < exCommands.index("commit check"):
+                cm1 = exCommands.index(commitidx)
+                cm2 = exCommands.index("commit check")
+                exCommands[cm2] = commitidx
+                exCommands[cm1] = "commit check"
 
 def get_prompt(session, thisprompt, args, enablepass):
     """
@@ -183,6 +185,7 @@ def main():
             try:
                 with open (commands, 'r') as exCommands:
                     exCommands = exCommands.read().splitlines()
+                    verify_commands(exCommands, args)
             except IOError:
                 print("ERROR::File not found {commandserror}".format(commandserror=commands))
                 exit(0)
@@ -220,10 +223,6 @@ def main():
                     continue
             filesSaved.append(lineHost.strip() + "-" + timestamp)
             results = open(lineHost.strip() + "-" + timestamp, 'w')
-            #session.sendline("set cli screen-length 0")
-
-
-            #session.expect(r'> *')
             prompt = session.before
             prompt = prompt.decode("utf-8")
             promptnew = prompt.split('\n')
