@@ -1,4 +1,4 @@
-#!/home/jscholz/PycharmProjects/VirtEnv/bin/python3.5
+#!/home/jscholz/PycharmProjects/VirtEnv/bin/python3
 import datetime
 import argparse
 import getpass
