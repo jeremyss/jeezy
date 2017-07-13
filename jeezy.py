@@ -29,6 +29,45 @@ def verify_commands(exCommands, args):
                 exCommands[cm2] = commitidx
                 exCommands[cm1] = "commit check"
 
+def get_os(session, thisprompt, args):
+    """
+
+    This function will check that the correct device type was used
+
+    """
+    matchprompt = re.compile('>|> |#|# ')
+    # Check Cisco device
+    if args.c:
+        if matchprompt.match(thisprompt.decode("utf-8")):
+            session.sendline("show version | include Cisco")
+            session.expect(r'> *$|# *$')
+            cios = session.before.decode("utf-8")
+            if "Cisco IOS Software" not in cios:
+                if "Cisco Adaptive Security Appliance" not in cios:
+                    print("This is not a Cisco IOS device\n")
+                    return True
+    # Check Juniper device
+    if args.j:
+        if matchprompt.match(thisprompt.decode("utf-8")):
+            session.sendline("show version | match junos | no-more")
+            session.expect(r'> *$|# *$')
+            junos = session.before.decode("utf-8")
+            if "JUNOS" not in junos:
+                print("This is not a Juniper device\n")
+                return True
+
+    #TODO
+    # Check Aruba device
+    elif args.a:
+        if thisprompt == b'>':
+            session.sendline("enable")
+            session.expect(r'assword.*')
+            set_enable(session, enablepass)
+        elif thisprompt == b'> ':
+            session.sendline("enable")
+            session.expect(r'assword.*')
+            set_enable(session, enablepass)
+
 def get_prompt(session, thisprompt, args, enablepass):
     """
 
@@ -47,14 +86,16 @@ def get_prompt(session, thisprompt, args, enablepass):
             session.expect(r'assword.*')
             set_enable(session, enablepass)
 
-    # TODO complete Aruba prompt
     # Check Aruba prompt
     elif args.a:
-        if session.expect(r'> *'):
+        if thisprompt == b'>':
             session.sendline("enable")
-            session.expect(r'assord *')
-            session.sendline(enablepass)
-            session.expect(r'# *')
+            session.expect(r'assword.*')
+            set_enable(session, enablepass)
+        elif thisprompt == b'> ':
+            session.sendline("enable")
+            session.expect(r'assword.*')
+            set_enable(session, enablepass)
 
 def set_enable(session, enablepass):
     """
@@ -63,6 +104,7 @@ def set_enable(session, enablepass):
     if it is not, prompt the user for it and sent it.
 
     """
+    #TODO catch wrong password
     if enablepass != "":
         session.sendline(enablepass)
         session.expect(r'# *')
@@ -79,14 +121,14 @@ def set_paging(session, args):
     """
     if args.a:
         session.sendline("no paging")
-        session.expect(r'# *')
+        session.expect(r'> *$|# *$')
     elif args.c:
         try:
             session.sendline("term length 0")
-            session.expect(r'# *')
+            session.expect(r'> *$|# *$')
         except:
             session.sendline("terminal pager 0")
-            session.expect(r'# *')
+            session.expect(r'> *$|# *$')
     elif args.j:
         session.sendline("set cli screen-length 0")
         session.expect(r'> *')
@@ -151,6 +193,7 @@ def main():
     currentTime = now.strftime('%H-%M-%S')
     timestamp = currentDate + "-" + currentTime
     filesSaved = []
+    wrongdevicetype = []
 
     username = input("Enter your username: ")
     password = getpass.getpass("Enter your password: ")
@@ -221,14 +264,20 @@ def main():
                     print("Unable to connect to {host} using telnet... giving up\n".format(host=lineHost.strip()))
                     failedhosts.append(lineHost.strip())
                     continue
-            filesSaved.append(lineHost.strip() + "-" + timestamp)
-            results = open(lineHost.strip() + "-" + timestamp, 'w')
             prompt = session.before
             prompt = prompt.decode("utf-8")
             promptnew = prompt.split('\n')
             prompt = str(promptnew[-1])
-            get_prompt(session, session.after, args, enablepass)
+            if get_os(session, session.after, args):
+                if session.isalive():
+                    session.sendline("exit")
+                wrongdevicetype.append(lineHost.strip())
+                continue
+            if args.enable:
+                get_prompt(session, session.after, args, enablepass)
             set_paging(session, args)
+            filesSaved.append(lineHost.strip() + "-" + timestamp)
+            results = open(lineHost.strip() + "-" + timestamp, 'w')
             for lineCommand in exCommands:
                 failedcommit = run_command(prompt, lineCommand, results, lineHost, session, args)
                 if failedcommit:
@@ -256,6 +305,10 @@ def main():
             print("\nCommit rolled back on the following hosts:\n")
             for cfail in rolledback:
                 print("{cfailed}".format(cfailed=cfail))
+        if len(wrongdevicetype) > 0:
+            print("\nThe following hosts were specified as the wrong device type:\n")
+            for wrongdevice in wrongdevicetype:
+                print("{wdevice}".format(wdevice=wrongdevice))
     else:
         exit(0)
 
