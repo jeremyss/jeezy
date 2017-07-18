@@ -10,9 +10,7 @@ _author__ = "Jeremy Scholz"
 
 
 def verify_commands(exCommands, args):
-    """
-
-    This function will verify commit commands on a device that supports candidate configurations.
+    """This function will verify commit commands on a device that supports candidate configurations.
     It will make sure that the order of the commands are correct to check for configuration failures.
 
     """
@@ -29,10 +27,9 @@ def verify_commands(exCommands, args):
                 exCommands[cm2] = commitidx
                 exCommands[cm1] = "commit check"
 
-def get_os(session, thisprompt, args):
-    """
 
-    This function will check that the correct device type was used
+def get_os(session, thisprompt, args):
+    """This function will check that the correct device type was used
 
     """
     matchprompt = re.compile('>|> |#|# ')
@@ -58,65 +55,55 @@ def get_os(session, thisprompt, args):
 
     #TODO
     # Check Aruba device
-    elif args.a:
-        if thisprompt == b'>':
-            session.sendline("enable")
-            session.expect(r'assword.*')
-            set_enable(session, enablepass)
-        elif thisprompt == b'> ':
-            session.sendline("enable")
-            session.expect(r'assword.*')
-            set_enable(session, enablepass)
+    #elif args.a:
+
+
 
 def get_prompt(session, thisprompt, args, enablepass):
-    """
-
-    This function will match for the device prompt and send the enable password
+    """This function will match for the device prompt and send the enable password
     or prompt the user for it if it is not set from the command line
 
     """
     # Check cisco prompt
     if args.c:
-        if thisprompt == b'>':
-            session.sendline("enable")
-            session.expect(r'assword.*')
-            set_enable(session, enablepass)
-        elif thisprompt == b'> ':
+        if thisprompt in (b'>', b'> '):
             session.sendline("enable")
             session.expect(r'assword.*')
             set_enable(session, enablepass)
 
     # Check Aruba prompt
     elif args.a:
-        if thisprompt == b'>':
+        if thisprompt in (b'>', b'> '):
             session.sendline("enable")
             session.expect(r'assword.*')
             set_enable(session, enablepass)
-        elif thisprompt == b'> ':
-            session.sendline("enable")
-            session.expect(r'assword.*')
-            set_enable(session, enablepass)
+
 
 def set_enable(session, enablepass):
-    """
-
-    This function will check if the enable password is set and send it,
+    """This function will check if the enable password is set and send it,
     if it is not, prompt the user for it and sent it.
 
     """
-    #TODO catch wrong password
     if enablepass != "":
         session.sendline(enablepass)
-        session.expect(r'# *')
+        try:
+            session.expect(r'# *')
+        except:
+            session.close()
+            print("\nUnable to get enable prompt... skipping this host\n")
+
     else:
         interactpass = getpass.getpass("Please enter enable password: ")
         session.sendline(interactpass)
-        session.expect(r'# *')
+        try:
+            session.expect(r'# *')
+        except:
+            session.close()
+            print("\nUnable to get enable prompt... skipping this host\n")
+
 
 def set_paging(session, args):
-    """
-
-    This function will disable the terminal from paging the output
+    """This function will disable the terminal from paging the output
 
     """
     if args.a:
@@ -133,10 +120,9 @@ def set_paging(session, args):
         session.sendline("set cli screen-length 0")
         session.expect(r'> *')
 
-def run_command(prompt, command, results, lineHost, session, args):
-    """
 
-    This function is the main device interpreter
+def run_command(prompt, command, results, lineHost, session, args):
+    """This function is the main device interpreter
 
     """
     commitfailed = False
@@ -167,6 +153,7 @@ def run_command(prompt, command, results, lineHost, session, args):
         results.write(output)
         return commitfailed
 
+
 def main():
 
     parser = argparse.ArgumentParser(description='Remote networking device command processor')
@@ -194,6 +181,7 @@ def main():
     timestamp = currentDate + "-" + currentTime
     filesSaved = []
     wrongdevicetype = []
+    noenable = []
 
     username = input("Enter your username: ")
     password = getpass.getpass("Enter your password: ")
@@ -275,6 +263,9 @@ def main():
                 continue
             if args.enable:
                 get_prompt(session, session.after, args, enablepass)
+                if not session.isalive():
+                    noenable.append(lineHost.strip())
+                    continue
             set_paging(session, args)
             filesSaved.append(lineHost.strip() + "-" + timestamp)
             results = open(lineHost.strip() + "-" + timestamp, 'w')
@@ -309,8 +300,13 @@ def main():
             print("\nThe following hosts were specified as the wrong device type:\n")
             for wrongdevice in wrongdevicetype:
                 print("{wdevice}".format(wdevice=wrongdevice))
+        if len(noenable) > 0:
+            print("\nThe following hosts were not able to set the enable prompt:\n")
+            for notenabled in noenable:
+                print("{nenable}".format(nenable=notenabled))
     else:
         exit(0)
+
 
 if __name__ == '__main__':
     try:
