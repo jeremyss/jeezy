@@ -128,7 +128,7 @@ def run_command(prompt, command, results, lineHost, session, args):
     commitfailed = False
     output = str()
     output += '\n' + '*'*30 + '\n' + 'Host -> ' + lineHost.strip() \
-              + '\nCommand -> ' + command + '\nPrompt -> ' + prompt + '\nMatch -> ' + str(session.after) + '\n\n'
+              + '\nCommand -> ' + command + '\n\n'
     session.sendline(command)
     time.sleep(.5)
     if session.isalive():
