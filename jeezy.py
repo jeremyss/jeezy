@@ -32,7 +32,7 @@ def get_os(session, thisprompt, args, enablepass):
     """
     matchprompt = re.compile('>|> |#|# ')
 
-    # Check Cisco device
+    # Check Aruba device
     if args.a:
         if thisprompt in (b'>', b'> '):
             session.sendline("enable")
