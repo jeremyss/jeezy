@@ -12,7 +12,6 @@ _author__ = "Jeremy Scholz"
 def verify_commands(exCommands, args):
     """This function will verify commit commands on a device that supports candidate configurations.
     It will make sure that the order of the commands are correct to check for configuration failures.
-
     """
     #Check Juniper device commands
     if args.j:
@@ -28,11 +27,25 @@ def verify_commands(exCommands, args):
                 exCommands[cm1] = "commit check"
 
 
-def get_os(session, thisprompt, args):
+def get_os(session, thisprompt, args, enablepass):
     """This function will check that the correct device type was used
-
     """
     matchprompt = re.compile('>|> |#|# ')
+
+    # Check Cisco device
+    if args.a:
+        if thisprompt in (b'>', b'> '):
+            session.sendline("enable")
+            session.expect(r'assword.*')
+            set_enable(session, enablepass)
+        if matchprompt.match(thisprompt.decode("utf-8")):
+            session.sendline("show version | include Aruba")
+            session.expect(r'> *$|# *$')
+            aos = session.before.decode("utf-8")
+            if "ArubaOS" not in aos:
+                print("This is not a Aruba device\n")
+                return True
+
     # Check Cisco device
     if args.c:
         if matchprompt.match(thisprompt.decode("utf-8")):
@@ -41,8 +54,10 @@ def get_os(session, thisprompt, args):
             cios = session.before.decode("utf-8")
             if "Cisco IOS Software" not in cios:
                 if "Cisco Adaptive Security Appliance" not in cios:
-                    print("This is not a Cisco IOS device\n")
-                    return True
+                    if "Cisco Nexus" not in cios:
+                        print("This is not a Cisco IOS/NX-OS device\n")
+                        return True
+
     # Check Juniper device
     if args.j:
         if matchprompt.match(thisprompt.decode("utf-8")):
@@ -53,16 +68,10 @@ def get_os(session, thisprompt, args):
                 print("This is not a Juniper device\n")
                 return True
 
-    #TODO
-    # Check Aruba device
-    #elif args.a:
-
-
 
 def get_prompt(session, thisprompt, args, enablepass):
     """This function will match for the device prompt and send the enable password
     or prompt the user for it if it is not set from the command line
-
     """
     # Check cisco prompt
     if args.c:
@@ -82,7 +91,6 @@ def get_prompt(session, thisprompt, args, enablepass):
 def set_enable(session, enablepass):
     """This function will check if the enable password is set and send it,
     if it is not, prompt the user for it and sent it.
-
     """
     if enablepass != "":
         session.sendline(enablepass)
@@ -104,18 +112,15 @@ def set_enable(session, enablepass):
 
 def set_paging(session, args):
     """This function will disable the terminal from paging the output
-
     """
     if args.a:
         session.sendline("no paging")
         session.expect(r'> *$|# *$')
     elif args.c:
-        try:
-            session.sendline("term length 0")
-            session.expect(r'> *$|# *$')
-        except:
-            session.sendline("terminal pager 0")
-            session.expect(r'> *$|# *$')
+        session.sendline("term length 0")
+        session.expect(r'> *$|# *$')
+        session.sendline("terminal pager 0")
+        session.expect(r'> *$|# *$')
     elif args.j:
         session.sendline("set cli screen-length 0")
         session.expect(r'> *')
@@ -123,7 +128,6 @@ def set_paging(session, args):
 
 def run_command(prompt, command, results, lineHost, session, args):
     """This function is the main device interpreter
-
     """
     commitfailed = False
     output = str()
@@ -132,7 +136,7 @@ def run_command(prompt, command, results, lineHost, session, args):
     session.sendline(command)
     time.sleep(.5)
     if session.isalive():
-        session.expect(prompt + r'> *$|# *$', timeout=120)
+        session.expect(prompt + r'> *$|# *$|% *$', timeout=120)
         output += session.before.decode("utf-8") + session.after.decode("utf-8")
         #check Juniper commit for failures
         if args.j:
@@ -158,14 +162,20 @@ def main():
 
     parser = argparse.ArgumentParser(description='Remote networking device command processor')
     parser.add_argument('-v', action='store_true', help='Output results to terminal')
-    parser.add_argument('-enable', action='store_true', help='Cisco enable password')
-    parser.add_argument('-host', type=str, help='Host(s) to run command on, separate multiple hosts with comma')
-    parser.add_argument('-command', type=str,
-                        help='Command(s) to run enclosed in \'\', separate multiple commands with comma')
+    parser.add_argument('-enable', action='store_true', help='Enable password')
     reqarg = parser.add_mutually_exclusive_group(required=True)
     reqarg.add_argument('-a', action='store_true', help='Aruba Device')
     reqarg.add_argument('-c', action='store_true', help='Cisco IOS Device')
     reqarg.add_argument('-j', action='store_true', help='Juniper Device')
+    parser.add_argument('-y', action='store_true', help='Confirm script execution')
+    reqhost = parser.add_mutually_exclusive_group(required=True)
+    reqhost.add_argument('-host', type=str, help='Host(s) to run command on, separate multiple hosts with comma')
+    reqhost.add_argument('-d', type=str, help='Host file')
+    reqcommand = parser.add_mutually_exclusive_group(required=True)
+    reqcommand.add_argument('-command', type=str,
+                        help='Command(s) to run enclosed in \'\', separate multiple commands with comma')
+    reqcommand.add_argument('-l', type=str, help='Commands file')
+
     args = parser.parse_args()
 
     command = []
@@ -190,28 +200,35 @@ def main():
         enablepass = getpass.getpass("Enter enable password: ")
     else:
         enablepass = ''
-    if not args.command:
-        commands = input("Enter commands list filename: ")
-    if not args.host:
-        hosts = input("Enter hosts filename: ")
 
-    print("Username: {user}".format(user=username))
-    if args.command:
-        print("Input commands: {command}".format(command=args.command))
+    if args.y:
+        runScript = "y"
     else:
-        print("Input commands file: {inputcommands}".format(inputcommands=commands))
-    if args.host:
-        print("Host list: {hostlist}".format(hostlist=args.host))
-    else:
-        print("Host file: {hostfile}".format(hostfile=hosts))
-    runScript = input("script will run with the above configuration... procede? Y/N: ")
-    runScript = str.lower(runScript)
+        print("Username: {user}".format(user=username))
+        if args.command:
+            print("Input commands: {command}".format(command=args.command))
+        elif args.l:
+            print("Input commands file: {inputcommands}".format(inputcommands=args.l))
+        if args.host:
+            print("Host list: {hostlist}".format(hostlist=args.host))
+        elif args.d:
+            print("Host file: {hostfile}".format(hostfile=args.d))
+        runScript = input("script will run with the above configuration... procede? Y/N: ")
+        runScript = str.lower(runScript)
 
     if runScript == "y":
         # read commands into list
         if args.command:
             exCommands = args.command.split(',')
             verify_commands(exCommands, args)
+        elif args.l:
+            try:
+                with open (args.l, 'r') as exCommands:
+                    exCommands = exCommands.read().splitlines()
+                    verify_commands(exCommands, args)
+            except IOError:
+                print("ERROR::File not found {commandserror}".format(commandserror=args.l))
+                exit(0)
         else:
             try:
                 with open (commands, 'r') as exCommands:
@@ -223,6 +240,13 @@ def main():
         # read hosts into list
         if args.host:
             hostList = args.host.split(',')
+        elif args.d:
+            try:
+                with open (args.d, 'r') as hostList:
+                    hostList = hostList.read().splitlines()
+            except IOError:
+                print("ERROR::File not found {hostserror}".format(hostserror=args.d))
+                exit(0)
         else:
             try:
                 with open (hosts, 'r') as hostList:
@@ -256,7 +280,7 @@ def main():
             prompt = prompt.decode("utf-8")
             promptnew = prompt.split('\n')
             prompt = str(promptnew[-1])
-            if get_os(session, session.after, args):
+            if get_os(session, session.after, args, enablepass):
                 if session.isalive():
                     session.sendline("exit")
                 wrongdevicetype.append(lineHost.strip())
