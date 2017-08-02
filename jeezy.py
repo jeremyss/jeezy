@@ -5,6 +5,8 @@ import getpass
 import pexpect
 import time
 import re
+import sys
+import os
 
 _author__ = "Jeremy Scholz"
 
@@ -134,7 +136,7 @@ def run_command(prompt, command, results, lineHost, session, args):
     output += '\n' + '*'*30 + '\n' + 'Host -> ' + lineHost.strip() \
               + '\nCommand -> ' + command + '\n\n'
     session.sendline(command)
-    time.sleep(.5)
+    time.sleep(1.5)
     if session.isalive():
         session.expect(prompt + r'> *$|# *$|% *$', timeout=120)
         output += session.before.decode("utf-8") + session.after.decode("utf-8")
@@ -267,7 +269,7 @@ def main():
                 print("Unable to connect to {host} using ssh... trying telnet".format(host=lineHost.strip()))
                 try:
                     session = pexpect.spawn("telnet " + lineHost.strip(), timeout=5, maxread=65535)
-                    session.expect('sername.')
+                    session.expect('sername.|ogin.')
                     session.sendline(username)
                     session.expect('.*assword.')
                     session.sendline(password)
@@ -338,3 +340,4 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         print()
         exit(130)
+
