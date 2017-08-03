@@ -5,8 +5,6 @@ import getpass
 import pexpect
 import time
 import re
-import sys
-import os
 
 _author__ = "Jeremy Scholz"
 
@@ -60,6 +58,16 @@ def get_os(session, thisprompt, args, enablepass):
                         print("This is not a Cisco IOS/NX-OS device\n")
                         return True
 
+    # Check Arista device
+    if args.e:
+        if matchprompt.match(thisprompt.decode("utf-8")):
+            session.sendline("show version | include Arista")
+            session.expect(r'> *$|# *$')
+            eos = session.before.decode("utf-8")
+            if "Arista" not in eos:
+                print("This is not a Arista device\n")
+                return True
+
     # Check Juniper device
     if args.j:
         if matchprompt.match(thisprompt.decode("utf-8")):
@@ -68,6 +76,26 @@ def get_os(session, thisprompt, args, enablepass):
             junos = session.before.decode("utf-8")
             if "JUNOS" not in junos:
                 print("This is not a Juniper device\n")
+                return True
+
+    # Check A10 device
+    if args.a10:
+        if matchprompt.match(thisprompt.decode("utf-8")):
+            session.sendline("show version | include Advanced Core OS")
+            session.expect(r'> *$|# *$')
+            acos = session.before.decode("utf-8")
+            if "ACOS" not in acos:
+                print("This is not a A10 device\n")
+                return True
+
+    # Check Brocade device
+    if args.b:
+        if matchprompt.match(thisprompt.decode("utf-8")):
+            session.sendline("show version | include Brocade")
+            session.expect(r'> *$|# *$')
+            adx = session.before.decode("utf-8")
+            if "Brocade" not in adx:
+                print("This is not a Brocade device\n")
                 return True
 
 
@@ -84,6 +112,13 @@ def get_prompt(session, thisprompt, args, enablepass):
 
     # Check Aruba prompt
     elif args.a:
+        if thisprompt in (b'>', b'> '):
+            session.sendline("enable")
+            session.expect(r'assword.*')
+            set_enable(session, enablepass)
+
+    # Check Arista prompt
+    elif args.e:
         if thisprompt in (b'>', b'> '):
             session.sendline("enable")
             session.expect(r'assword.*')
@@ -126,7 +161,15 @@ def set_paging(session, args):
     elif args.j:
         session.sendline("set cli screen-length 0")
         session.expect(r'> *')
-
+    elif args.e:
+        session.sendline("term length 0")
+        session.expect(r'> *$|# *$')
+    elif args.a10:
+        session.sendline("term length 0")
+        session.expect(r'> *$|# *$')
+    elif args.b:
+        session.sendline("term length 0")
+        session.expect(r'> *$|# *$')
 
 def run_command(prompt, command, results, lineHost, session, args):
     """This function is the main device interpreter
@@ -169,6 +212,9 @@ def main():
     reqarg.add_argument('-a', action='store_true', help='Aruba Device')
     reqarg.add_argument('-c', action='store_true', help='Cisco IOS Device')
     reqarg.add_argument('-j', action='store_true', help='Juniper Device')
+    reqarg.add_argument('-e', action='store_true', help='Arista Device')
+    reqarg.add_argument('-a10', action='store_true', help='A10 Device')
+    reqarg.add_argument('-b', action='store_true', help='Brocade Device')
     parser.add_argument('-y', action='store_true', help='Confirm script execution')
     reqhost = parser.add_mutually_exclusive_group(required=True)
     reqhost.add_argument('-host', type=str, help='Host(s) to run command on, separate multiple hosts with comma')
@@ -340,4 +386,3 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         print()
         exit(130)
-
