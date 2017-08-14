@@ -52,11 +52,12 @@ def get_os(session, thisprompt, args, enablepass):
             session.sendline("show version | include Cisco")
             session.expect(r'> *$|# *$')
             cios = session.before.decode("utf-8")
-            if "Cisco IOS Software" not in cios:
-                if "Cisco Adaptive Security Appliance" not in cios:
-                    if "Cisco Nexus" not in cios:
-                        print("This is not a Cisco IOS/NX-OS device\n")
-                        return True
+            if "Cisco Internetwork Operating System Software" not in cios:
+                if "Cisco IOS Software" not in cios:
+                    if "Cisco Adaptive Security Appliance" not in cios:
+                        if "Cisco Nexus" not in cios:
+                            print("This is not a Cisco IOS/NX-OS device\n")
+                            return True
 
     # Check Arista device
     if args.e:
@@ -333,7 +334,7 @@ def main():
                     session.sendline("exit")
                 wrongdevicetype.append(lineHost.strip())
                 continue
-            if args.enable:
+            if args.enable or not args.enable:
                 get_prompt(session, session.after, args, enablepass)
                 if not session.isalive():
                     noenable.append(lineHost.strip())
