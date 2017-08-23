@@ -180,9 +180,9 @@ def run_command(prompt, command, results, lineHost, session, args):
     output += '\n' + '*'*30 + '\n' + 'Host -> ' + lineHost.strip() \
               + '\nCommand -> ' + command + '\n\n'
     session.sendline(command)
-    time.sleep(1.5)
+    #time.sleep(1.5)
     if session.isalive():
-        session.expect(prompt + r'> *$|# *$|% *$', timeout=120)
+        session.expect(prompt + r'(> *$|# *$|% *$)', timeout=120)
         output += session.before.decode("utf-8") + session.after.decode("utf-8")
         #check Juniper commit for failures
         if args.j:
@@ -328,7 +328,7 @@ def main():
             prompt = session.before
             prompt = prompt.decode("utf-8")
             promptnew = prompt.split('\n')
-            prompt = str(promptnew[-1])
+            prompt = str(promptnew[-1]).strip()
             if get_os(session, session.after, args, enablepass):
                 if session.isalive():
                     session.sendline("exit")
