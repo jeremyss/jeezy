@@ -1,10 +1,11 @@
-#!/home/jscholz/PycharmProjects/VirtEnv/bin/python3.5
+#!/home/jscholz/PycharmProjects/VirtEnv/bin/python
 import datetime
 import argparse
 import getpass
 import pexpect
 import time
 import re
+import pdb
 
 _author__ = "Jeremy Scholz"
 
@@ -31,70 +32,81 @@ def get_os(session, thisprompt, args, enablepass):
     """This function will check that the correct device type was used
     """
     matchprompt = re.compile('>|> |#|# ')
+    removeshow = re.compile('show version.*')
 
     # Check Aruba device
     if args.a:
-        if thisprompt in (b'>', b'> '):
-            session.sendline("enable")
-            session.expect(r'assword.*', timeout=20)
-            set_enable(session, enablepass)
-        if matchprompt.match(thisprompt.decode("utf-8")):
+        if matchprompt.match(thisprompt):
             session.sendline("show version | include Aruba")
             session.expect(r'> *$|# *$', timeout=20)
-            aos = session.before.decode("utf-8")
+            aos = session.before
+            aos = re.sub(removeshow,'',aos)
             if "ArubaOS" not in aos:
                 print("This is not a Aruba device\n")
                 return True
 
     # Check Cisco device
     if args.c:
-        if matchprompt.match(thisprompt.decode("utf-8")):
+        if matchprompt.match(thisprompt):
             session.sendline("show version | include Cisco")
+            #session.sendline("show version")
             session.expect(r'> *$|# *$', timeout=20)
-            cios = session.before.decode("utf-8")
+            cios = session.before
+            cios = re.sub(removeshow, '', cios)
+
             if "Cisco Internetwork Operating System Software" not in cios:
                 if "Cisco IOS Software" not in cios:
                     if "Cisco Adaptive Security Appliance" not in cios:
                         if "Cisco Nexus" not in cios:
                             print("This is not a Cisco IOS/NX-OS device\n")
+
                             return True
 
     # Check Arista device
     if args.e:
-        if matchprompt.match(thisprompt.decode("utf-8")):
+        if matchprompt.match(thisprompt):
             session.sendline("show version | include Arista")
+            #session.sendline("show version")
             session.expect(r'> *$|# *$', timeout=20)
-            eos = session.before.decode("utf-8")
+            eos = session.before
+
+            eos = re.sub(removeshow, '', eos)
             if "Arista" not in eos:
                 print("This is not a Arista device\n")
+
                 return True
 
     # Check Juniper device
     if args.j:
-        if matchprompt.match(thisprompt.decode("utf-8")):
-            session.sendline("show version | match junos | no-more")
+        if matchprompt.match(thisprompt):
+            session.sendline("show version | match junos | no-more  ")
             session.expect(r'> *$|# *$', timeout=20)
-            junos = session.before.decode("utf-8")
+            junos = session.before
+            junos = re.sub(removeshow, '', junos)
+
             if "JUNOS" not in junos:
                 print("This is not a Juniper device\n")
+
                 return True
 
     # Check A10 device
     if args.a10:
-        if matchprompt.match(thisprompt.decode("utf-8")):
+        if matchprompt.match(thisprompt):
             session.sendline("show version | include Advanced Core OS")
             session.expect(r'> *$|# *$', timeout=20)
-            acos = session.before.decode("utf-8")
+            acos = session.before
+            acos = re.sub(removeshow, '', acos)
             if "ACOS" not in acos:
                 print("This is not a A10 device\n")
                 return True
 
     # Check Brocade device
     if args.b:
-        if matchprompt.match(thisprompt.decode("utf-8")):
+        if matchprompt.match(thisprompt):
             session.sendline("show version | include Brocade")
             session.expect(r'> *$|# *$', timeout=20)
-            adx = session.before.decode("utf-8")
+            adx = session.before
+            adx = re.sub(removeshow, '', adx)
             if "Brocade" not in adx:
                 print("This is not a Brocade device\n")
                 return True
@@ -106,21 +118,22 @@ def get_prompt(session, thisprompt, args, enablepass):
     """
     # Check cisco prompt
     if args.c:
-        if thisprompt in (b'>', b'> '):
+        if thisprompt in ('>', '> '):
             session.sendline("enable")
             session.expect(r'assword.*', timeout=20)
             set_enable(session, enablepass)
 
     # Check Aruba prompt
     elif args.a:
-        if thisprompt in (b'>', b'> '):
+        if thisprompt in ('>', '> '):
             session.sendline("enable")
             session.expect(r'assword.*', timeout=20)
             set_enable(session, enablepass)
 
     # Check Arista prompt
     elif args.e:
-        if thisprompt in (b'>', b'> '):
+        if thisprompt in ('>', '> '):
+
             session.sendline("enable")
             session.expect(r'assword.*', timeout=20)
             set_enable(session, enablepass)
@@ -151,26 +164,27 @@ def set_enable(session, enablepass):
 def set_paging(session, args):
     """This function will disable the terminal from paging the output
     """
-    if args.a:
-        session.sendline("no paging")
-        session.expect(r'> *$|# *$', timeout=20)
-    elif args.c:
-        session.sendline("term length 0")
-        session.expect(r'> *$|# *$', timeout=20)
-        session.sendline("terminal pager 0")
-        session.expect(r'> *$|# *$', timeout=20)
-    elif args.j:
-        session.sendline("set cli screen-length 0")
-        session.expect(r'> *', timeout=20)
-    elif args.e:
-        session.sendline("term length 0")
-        session.expect(r'> *$|# *$', timeout=20)
-    elif args.a10:
-        session.sendline("term length 0")
-        session.expect(r'> *$|# *$', timeout=20)
-    elif args.b:
-        session.sendline("term length 0")
-        session.expect(r'> *$|# *$', timeout=20)
+    #if args.a:
+    session.sendline("no paging")
+    session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
+    #elif args.c:
+    session.sendline("term length 0")
+    session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
+    session.sendline("terminal pager 0")
+    session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
+    #elif args.j:
+    session.sendline("set cli screen-length 0")
+    session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
+
+    #elif args.e:
+    #session.sendline("term length 0")
+    #session.expect(r'> *$|# *$', timeout=20)
+    #elif args.a10:
+    #session.sendline("term length 0")
+    #session.expect(r'> *$|# *$', timeout=20)
+    #elif args.b:
+    #session.sendline("term length 0")
+    #session.expect(r'> *$|# *$', timeout=20)
 
 def run_command(prompt, command, results, lineHost, session, args):
     """This function is the main device interpreter
@@ -183,7 +197,7 @@ def run_command(prompt, command, results, lineHost, session, args):
     #time.sleep(1.5)
     if session.isalive():
         session.expect(prompt + r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=120)
-        output += session.before.decode("utf-8") + session.after.decode("utf-8")
+        output += session.before + session.after
         #check Juniper commit for failures
         if args.j:
             if command == "commit check":
@@ -191,11 +205,11 @@ def run_command(prompt, command, results, lineHost, session, args):
                     session.sendline("rollback 0")
                     time.sleep(2)
                     session.expect(prompt + r'> *$|# *$', timeout=120)
-                    output += session.before.decode("utf-8") + session.after.decode("utf-8")
+                    output += session.before + session.after
                     session.sendline("exit")
                     time.sleep(2)
                     session.expect(prompt + r'> *$|# *$', timeout=120)
-                    output += session.before.decode("utf-8") + session.after.decode("utf-8")
+                    output += session.before + session.after
                     commitfailed = True
 
         if args.v:
@@ -308,34 +322,43 @@ def main():
             try:
                 session = pexpect.spawn(
                     "ssh -l " + username + " -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no "
-                    "-o PubkeyAuthentication=no " + lineHost.strip(), timeout=10, maxread=65535)
+                    "-o PubkeyAuthentication=no " + lineHost.strip(), timeout=10, maxread=65535, encoding="utf-8")
                 session.expect('.*assword.', timeout=20)
                 session.sendline(password)
-                session.expect(r'> *|# *', timeout=20)
+
+                #session.expect(r'> *|# *', timeout=20)
+                session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
             except:
                 print("Unable to connect to {host} using ssh... trying telnet".format(host=lineHost.strip()))
                 try:
-                    session = pexpect.spawn("telnet " + lineHost.strip(), timeout=10, maxread=65535)
+                    session = pexpect.spawn("telnet " + lineHost.strip(), timeout=10, maxread=65535, encoding="utf-8")
                     session.expect('sername.|ogin.')
                     session.sendline(username)
                     session.expect('.*assword.', timeout=20)
                     session.sendline(password)
-                    session.expect(r'> *|# *', timeout=20)
+                    # session.expect(r'> *|# *', timeout=20)
+                    session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
                 except:
                     print("Unable to connect to {host} using telnet... giving up\n".format(host=lineHost.strip()))
                     failedhosts.append(lineHost.strip())
                     continue
             prompt = session.before
-            prompt = prompt.decode("utf-8")
             promptnew = prompt.split('\n')
             prompt = str(promptnew[-1]).strip()
-            if get_os(session, session.after, args, enablepass):
+            prompt = prompt.strip("\x1b[5n")
+            afterprompt = session.after
+
+            #set_paging(session, args)
+            if get_os(session, afterprompt, args, enablepass):
                 if session.isalive():
                     session.sendline("exit")
                 wrongdevicetype.append(lineHost.strip())
                 continue
+
             if args.enable or not args.enable:
-                get_prompt(session, session.after, args, enablepass)
+
+                get_prompt(session, afterprompt, args, enablepass)
+
                 if not session.isalive():
                     noenable.append(lineHost.strip())
                     continue
