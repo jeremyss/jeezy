@@ -5,7 +5,6 @@ import getpass
 import pexpect
 import time
 import re
-import pdb
 
 _author__ = "Jeremy Scholz"
 
@@ -28,7 +27,7 @@ def verify_commands(exCommands, args):
                 exCommands[cm1] = "commit check"
 
 
-def get_os(session, thisprompt, args, enablepass):
+def get_os(session, thisprompt, prompt, args, enablepass):
     """This function will check that the correct device type was used
     """
     matchprompt = re.compile('>|> |#|# ')
@@ -49,31 +48,25 @@ def get_os(session, thisprompt, args, enablepass):
     if args.c:
         if matchprompt.match(thisprompt):
             session.sendline("show version | include Cisco")
-            #session.sendline("show version")
             session.expect(r'> *$|# *$', timeout=20)
             cios = session.before
             cios = re.sub(removeshow, '', cios)
-
             if "Cisco Internetwork Operating System Software" not in cios:
                 if "Cisco IOS Software" not in cios:
                     if "Cisco Adaptive Security Appliance" not in cios:
                         if "Cisco Nexus" not in cios:
                             print("This is not a Cisco IOS/NX-OS device\n")
-
                             return True
 
     # Check Arista device
     if args.e:
         if matchprompt.match(thisprompt):
             session.sendline("show version | include Arista")
-            #session.sendline("show version")
-            session.expect(r'> *$|# *$', timeout=20)
+            session.expect(prompt + r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)')
             eos = session.before
-
             eos = re.sub(removeshow, '', eos)
             if "Arista" not in eos:
                 print("This is not a Arista device\n")
-
                 return True
 
     # Check Juniper device
@@ -83,10 +76,8 @@ def get_os(session, thisprompt, args, enablepass):
             session.expect(r'> *$|# *$', timeout=20)
             junos = session.before
             junos = re.sub(removeshow, '', junos)
-
             if "JUNOS" not in junos:
                 print("This is not a Juniper device\n")
-
                 return True
 
     # Check A10 device
@@ -133,7 +124,6 @@ def get_prompt(session, thisprompt, args, enablepass):
     # Check Arista prompt
     elif args.e:
         if thisprompt in ('>', '> '):
-
             session.sendline("enable")
             session.expect(r'assword.*', timeout=20)
             set_enable(session, enablepass)
@@ -150,7 +140,6 @@ def set_enable(session, enablepass):
         except:
             session.close()
             print("\nUnable to get enable prompt... skipping this host\n")
-
     else:
         interactpass = getpass.getpass("Please enter enable password: ")
         session.sendline(interactpass)
@@ -161,30 +150,30 @@ def set_enable(session, enablepass):
             print("\nUnable to get enable prompt... skipping this host\n")
 
 
-def set_paging(session, args):
+def set_paging(session, prompt, args):
     """This function will disable the terminal from paging the output
     """
-    #if args.a:
-    session.sendline("no paging")
-    session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
-    #elif args.c:
-    session.sendline("term length 0")
-    session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
-    session.sendline("terminal pager 0")
-    session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
-    #elif args.j:
-    session.sendline("set cli screen-length 0")
-    session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
+    if args.a:
+        session.sendline("no paging")
+        session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
+    if args.c:
+        session.sendline("term length 0")
+        session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
+        session.sendline("terminal pager 0")
+        session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
+    if args.j:
+        session.sendline("set cli screen-length 0")
+        session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
+    if args.e:
+        session.sendline("term length 0 ")
+        session.expect(prompt + r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
+    if args.a10:
+        session.sendline("term length 0")
+        session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
+    if args.b:
+        session.sendline("term length 0")
+        session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
 
-    #elif args.e:
-    #session.sendline("term length 0")
-    #session.expect(r'> *$|# *$', timeout=20)
-    #elif args.a10:
-    #session.sendline("term length 0")
-    #session.expect(r'> *$|# *$', timeout=20)
-    #elif args.b:
-    #session.sendline("term length 0")
-    #session.expect(r'> *$|# *$', timeout=20)
 
 def run_command(prompt, command, results, lineHost, session, args):
     """This function is the main device interpreter
@@ -194,7 +183,7 @@ def run_command(prompt, command, results, lineHost, session, args):
     output += '\n' + '*'*30 + '\n' + 'Host -> ' + lineHost.strip() \
               + '\nCommand -> ' + command + '\n\n'
     session.sendline(command)
-    #time.sleep(1.5)
+    time.sleep(1.5)
     if session.isalive():
         session.expect(prompt + r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=120)
         output += session.before + session.after
@@ -211,7 +200,6 @@ def run_command(prompt, command, results, lineHost, session, args):
                     session.expect(prompt + r'> *$|# *$', timeout=120)
                     output += session.before + session.after
                     commitfailed = True
-
         if args.v:
             print(output)
         results.write(output)
@@ -219,7 +207,6 @@ def run_command(prompt, command, results, lineHost, session, args):
 
 
 def main():
-
     parser = argparse.ArgumentParser(description='Remote networking device command processor')
     parser.add_argument('-v', action='store_true', help='Output results to terminal')
     parser.add_argument('-enable', action='store_true', help='Enable password')
@@ -255,7 +242,6 @@ def main():
     filesSaved = []
     wrongdevicetype = []
     noenable = []
-
     username = input("Enter your username: ")
     password = getpass.getpass("Enter your password: ")
 
@@ -292,14 +278,6 @@ def main():
             except IOError:
                 print("ERROR::File not found {commandserror}".format(commandserror=args.l))
                 exit(0)
-        else:
-            try:
-                with open (commands, 'r') as exCommands:
-                    exCommands = exCommands.read().splitlines()
-                    verify_commands(exCommands, args)
-            except IOError:
-                print("ERROR::File not found {commandserror}".format(commandserror=commands))
-                exit(0)
         # read hosts into list
         if args.host:
             hostList = args.host.split(',')
@@ -310,13 +288,7 @@ def main():
             except IOError:
                 print("ERROR::File not found {hostserror}".format(hostserror=args.d))
                 exit(0)
-        else:
-            try:
-                with open (hosts, 'r') as hostList:
-                    hostList = hostList.read().splitlines()
-            except IOError:
-                print("ERROR::File not found {hostserror}".format(hostserror=hosts))
-                exit(0)
+
         for lineHost in hostList:
             print("Running commands for {currenthost}...please wait".format(currenthost=lineHost.strip()))
             try:
@@ -325,8 +297,6 @@ def main():
                     "-o PubkeyAuthentication=no " + lineHost.strip(), timeout=10, maxread=65535, encoding="utf-8")
                 session.expect('.*assword.', timeout=20)
                 session.sendline(password)
-
-                #session.expect(r'> *|# *', timeout=20)
                 session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
             except:
                 print("Unable to connect to {host} using ssh... trying telnet".format(host=lineHost.strip()))
@@ -336,7 +306,6 @@ def main():
                     session.sendline(username)
                     session.expect('.*assword.', timeout=20)
                     session.sendline(password)
-                    # session.expect(r'> *|# *', timeout=20)
                     session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
                 except:
                     print("Unable to connect to {host} using telnet... giving up\n".format(host=lineHost.strip()))
@@ -345,24 +314,22 @@ def main():
             prompt = session.before
             promptnew = prompt.split('\n')
             prompt = str(promptnew[-1]).strip()
+            #strip out Arista stuff
             prompt = prompt.strip("\x1b[5n")
             afterprompt = session.after
 
-            #set_paging(session, args)
-            if get_os(session, afterprompt, args, enablepass):
+            if get_os(session, afterprompt, prompt, args, enablepass):
                 if session.isalive():
                     session.sendline("exit")
                 wrongdevicetype.append(lineHost.strip())
                 continue
 
             if args.enable or not args.enable:
-
                 get_prompt(session, afterprompt, args, enablepass)
-
                 if not session.isalive():
                     noenable.append(lineHost.strip())
                     continue
-            set_paging(session, args)
+            set_paging(session, prompt, args)
             filesSaved.append(lineHost.strip() + "-" + timestamp)
             results = open(lineHost.strip() + "-" + timestamp, 'w')
             for lineCommand in exCommands:
