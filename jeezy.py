@@ -62,7 +62,7 @@ def get_os(session, thisprompt, prompt, args, enablepass):
     if args.e:
         if matchprompt.match(thisprompt):
             session.sendline("show version | include Arista")
-            session.expect(prompt + r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)')
+            session.expect(prompt + r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)')
             eos = session.before
             eos = re.sub(removeshow, '', eos)
             if "Arista" not in eos:
@@ -155,24 +155,24 @@ def set_paging(session, prompt, args):
     """
     if args.a:
         session.sendline("no paging")
-        session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
+        session.expect(r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', timeout=20)
     if args.c:
         session.sendline("term length 0")
-        session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
+        session.expect(r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', timeout=20)
         session.sendline("terminal pager 0")
-        session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
+        session.expect(r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', timeout=20)
     if args.j:
         session.sendline("set cli screen-length 0")
-        session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
+        session.expect(r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', timeout=20)
     if args.e:
         session.sendline("term length 0 ")
-        session.expect(prompt + r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
+        session.expect(prompt + r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', timeout=20)
     if args.a10:
         session.sendline("term length 0")
-        session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
+        session.expect(r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', timeout=20)
     if args.b:
         session.sendline("term length 0")
-        session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
+        session.expect(r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', timeout=20)
 
 
 def run_command(prompt, command, results, lineHost, session, args):
@@ -185,7 +185,7 @@ def run_command(prompt, command, results, lineHost, session, args):
     session.sendline(command)
     time.sleep(1.5)
     if session.isalive():
-        session.expect(prompt + r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=120)
+        session.expect(prompt + r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', timeout=120)
         output += session.before + session.after
         #check Juniper commit for failures
         if args.j:
@@ -297,7 +297,7 @@ def main():
                     "-o PubkeyAuthentication=no " + lineHost.strip(), timeout=10, maxread=65535, encoding="utf-8")
                 session.expect('.*assword.', timeout=20)
                 session.sendline(password)
-                session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
+                session.expect(r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', timeout=20)
             except:
                 print("Unable to connect to {host} using ssh... trying telnet".format(host=lineHost.strip()))
                 try:
@@ -306,7 +306,7 @@ def main():
                     session.sendline(username)
                     session.expect('.*assword.', timeout=20)
                     session.sendline(password)
-                    session.expect(r'(> *$|# *$|% *$|\(.*\)> *$|\(.*\)# *$|\(.*\)% *$)', timeout=20)
+                    session.expect(r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', timeout=20)
                 except:
                     print("Unable to connect to {host} using telnet... giving up\n".format(host=lineHost.strip()))
                     failedhosts.append(lineHost.strip())
