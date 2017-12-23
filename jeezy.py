@@ -1,4 +1,4 @@
-#!/home/jscholz/PycharmProjects/VirtEnv/bin/python
+#!/usr/bin/env python3
 import datetime
 import argparse
 import getpass
@@ -6,12 +6,19 @@ import pexpect
 import time
 import re
 
+
 _author__ = "Jeremy Scholz"
 
 
 def verify_commands(exCommands, args):
-    """This function will verify commit commands on a device that supports candidate configurations.
+    """
+    This function will verify commit commands on a device that supports candidate configurations.
     It will make sure that the order of the commands are correct to check for configuration failures.
+
+    :param exCommands:
+    :param args:
+    :return:
+
     """
     #Check Juniper device commands
     if args.j:
@@ -27,111 +34,128 @@ def verify_commands(exCommands, args):
                 exCommands[cm1] = "commit check"
 
 
-def get_os(session, thisprompt, prompt, args, enablepass):
-    """This function will check that the correct device type was used
+def get_os(session, afterprompt, fullmatch, args, enablepass):
     """
-    matchprompt = re.compile('>|> |#|# ')
+    This function will check that the correct device type was used
+
+    :param session:
+    :param afterprompt:
+    :param fullmatch:
+    :param args:
+    :param enablepass:
+    :return:
+
+    """
+
     removeshow = re.compile('show version.*')
 
     # Check Aruba device
     if args.a:
-        if matchprompt.match(thisprompt):
-            session.sendline("show version | include Aruba")
-            session.expect(r'> *$|# *$', timeout=20)
-            aos = session.before
-            aos = re.sub(removeshow,'',aos)
-            if "ArubaOS" not in aos:
-                print("This is not a Aruba device\n")
-                return True
+        session.sendline("show version | include Aruba")
+        session.expect(fullmatch, timeout=20)
+        aos = session.before
+        aos = re.sub(removeshow,'',aos)
+        if "ArubaOS" not in aos:
+            print("This is not a Aruba device\n")
+            return True
 
     # Check Cisco device
     if args.c:
-        if matchprompt.match(thisprompt):
-            session.sendline("show version | include Cisco")
-            session.expect(r'> *$|# *$', timeout=20)
-            cios = session.before
-            cios = re.sub(removeshow, '', cios)
-            if "Cisco Internetwork Operating System Software" not in cios:
-                if "Cisco IOS Software" not in cios:
-                    if "Cisco Adaptive Security Appliance" not in cios:
-                        if "Cisco Nexus" not in cios:
-                            print("This is not a Cisco IOS/NX-OS device\n")
-                            return True
+        session.sendline("show version | include Cisco")
+        session.expect(fullmatch, timeout=20)
+        cios = session.before
+        cios = re.sub(removeshow, '', cios)
+        if "Cisco Internetwork Operating System Software" not in cios:
+            if "Cisco IOS Software" not in cios:
+                if "Cisco Adaptive Security Appliance" not in cios:
+                    if "Cisco Nexus" not in cios:
+                        print("This is not a Cisco IOS/NX-OS device\n")
+                        return True
 
     # Check Arista device
     if args.e:
-        if matchprompt.match(thisprompt):
-            session.sendline("show version | include Arista")
-            session.expect(prompt + r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)')
-            eos = session.before
-            eos = re.sub(removeshow, '', eos)
-            if "Arista" not in eos:
-                print("This is not a Arista device\n")
-                return True
+        session.sendline("show version | include Arista")
+        session.expect(fullmatch, timeout=20)
+        eos = session.before
+        eos = re.sub(removeshow, '', eos)
+        if "Arista" not in eos:
+            print("This is not a Arista device\n")
+            return True
 
     # Check Juniper device
     if args.j:
-        if matchprompt.match(thisprompt):
-            session.sendline("show version | match junos | no-more  ")
-            session.expect(r'> *$|# *$', timeout=20)
-            junos = session.before
-            junos = re.sub(removeshow, '', junos)
-            if "JUNOS" not in junos:
-                print("This is not a Juniper device\n")
-                return True
+        session.sendline("show version | match junos | no-more")
+        session.expect(fullmatch, timeout=20)
+        junos = session.before
+        junos = re.sub(removeshow, '', junos)
+        if "JUNOS" not in junos:
+            print("This is not a Juniper device\n")
+            return True
 
     # Check A10 device
     if args.a10:
-        if matchprompt.match(thisprompt):
-            session.sendline("show version | include Advanced Core OS")
-            session.expect(r'> *$|# *$', timeout=20)
-            acos = session.before
-            acos = re.sub(removeshow, '', acos)
-            if "ACOS" not in acos:
-                print("This is not a A10 device\n")
-                return True
+        session.sendline("show version | include Advanced Core OS")
+        session.expect(fullmatch, timeout=20)
+        acos = session.before
+        acos = re.sub(removeshow, '', acos)
+        if "ACOS" not in acos:
+            print("This is not a A10 device\n")
+            return True
 
     # Check Brocade device
     if args.b:
-        if matchprompt.match(thisprompt):
-            session.sendline("show version | include Brocade")
-            session.expect(r'> *$|# *$', timeout=20)
-            adx = session.before
-            adx = re.sub(removeshow, '', adx)
-            if "Brocade" not in adx:
-                print("This is not a Brocade device\n")
-                return True
+        session.sendline("show version | include Brocade")
+        session.expect(fullmatch, timeout=20)
+        adx = session.before
+        adx = re.sub(removeshow, '', adx)
+        if "Brocade" not in adx:
+            print("This is not a Brocade device\n")
+            return True
 
 
-def get_prompt(session, thisprompt, args, enablepass):
-    """This function will match for the device prompt and send the enable password
+def get_prompt(session, afterprompt, fullmatch, args, enablepass):
+    """
+    This function will match for the device prompt and send the enable password
     or prompt the user for it if it is not set from the command line
+
+    :param session:
+    :param afterprompt:
+    :param fullmatch:
+    :param args:
+    :param enablepass:
+    :return:
+
     """
     # Check cisco prompt
     if args.c:
-        if thisprompt in ('>', '> '):
+        if (">" or "> ") in afterprompt:
             session.sendline("enable")
             session.expect(r'assword.*', timeout=20)
             set_enable(session, enablepass)
 
     # Check Aruba prompt
     elif args.a:
-        if thisprompt in ('>', '> '):
+        if (">" or "> ") in afterprompt:
             session.sendline("enable")
             session.expect(r'assword.*', timeout=20)
             set_enable(session, enablepass)
 
     # Check Arista prompt
     elif args.e:
-        if thisprompt in ('>', '> '):
+        if (">" or "> ") in afterprompt:
             session.sendline("enable")
             session.expect(r'assword.*', timeout=20)
             set_enable(session, enablepass)
 
 
 def set_enable(session, enablepass):
-    """This function will check if the enable password is set and send it,
-    if it is not, prompt the user for it and sent it.
+    """
+    This function will check if the enable password is set and send it, if it is not, prompt the user for it and sent it.
+
+    :param session:
+    :param enablepass:
+    :return:
+
     """
     if enablepass != "":
         session.sendline(enablepass)
@@ -150,33 +174,51 @@ def set_enable(session, enablepass):
             print("\nUnable to get enable prompt... skipping this host\n")
 
 
-def set_paging(session, prompt, args):
-    """This function will disable the terminal from paging the output
+def set_paging(session, afterprompt, fullmatch, args):
+    """
+    This function will disable the terminal from paging the output
+
+    :param session:
+    :param afterprompt:
+    :param fullmatch:
+    :param args:
+    :return:
+
     """
     if args.a:
         session.sendline("no paging")
-        session.expect(r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', timeout=20)
+        session.expect(fullmatch, timeout=20)
     if args.c:
         session.sendline("term length 0")
-        session.expect(r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', timeout=20)
+        session.expect(fullmatch, timeout=20)
         session.sendline("terminal pager 0")
-        session.expect(r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', timeout=20)
+        session.expect(fullmatch, timeout=20)
     if args.j:
         session.sendline("set cli screen-length 0")
-        session.expect(r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', timeout=20)
+        session.expect(fullmatch, timeout=20)
     if args.e:
         session.sendline("term length 0 ")
-        session.expect(prompt + r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', timeout=20)
+        session.expect(fullmatch, timeout=20)
     if args.a10:
         session.sendline("term length 0")
-        session.expect(r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', timeout=20)
+        session.expect(fullmatch, timeout=20)
     if args.b:
         session.sendline("term length 0")
-        session.expect(r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', timeout=20)
+        session.expect(fullmatch, timeout=20)
 
 
-def run_command(prompt, command, results, lineHost, session, args):
-    """This function is the main device interpreter
+def run_command(fullmatch, command, results, lineHost, session, args):
+    """
+    This function is the main device interpreter
+
+    :param fullmatch:
+    :param command:
+    :param results:
+    :param lineHost:
+    :param session:
+    :param args:
+    :return: commitfailed
+
     """
     commitfailed = False
     output = str()
@@ -185,7 +227,7 @@ def run_command(prompt, command, results, lineHost, session, args):
     session.sendline(command)
     time.sleep(1.5)
     if session.isalive():
-        session.expect(prompt + r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', timeout=120)
+        session.expect(fullmatch + r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', timeout=120)
         output += session.before + session.after
         #check Juniper commit for failures
         if args.j:
@@ -193,11 +235,11 @@ def run_command(prompt, command, results, lineHost, session, args):
                 if "error: configuration check-out failed" in output:
                     session.sendline("rollback 0")
                     time.sleep(2)
-                    session.expect(prompt + r'> *$|# *$', timeout=120)
+                    session.expect(fullmatch, timeout=120)
                     output += session.before + session.after
                     session.sendline("exit")
                     time.sleep(2)
-                    session.expect(prompt + r'> *$|# *$', timeout=120)
+                    session.expect(fullmatch, timeout=120)
                     output += session.before + session.after
                     commitfailed = True
         if args.v:
@@ -244,6 +286,9 @@ def main():
     noenable = []
     username = input("Enter your username: ")
     password = getpass.getpass("Enter your password: ")
+
+    firstlogin = "[^#*][>#] ?$"
+
 
     if args.enable:
         enablepass = getpass.getpass("Enter enable password: ")
@@ -297,7 +342,7 @@ def main():
                     "-o PubkeyAuthentication=no " + lineHost.strip(), timeout=10, maxread=65535, encoding="utf-8")
                 session.expect('.*assword.', timeout=20)
                 session.sendline(password)
-                session.expect(r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', timeout=20)
+                session.expect(firstlogin, timeout=20)
             except:
                 print("Unable to connect to {host} using ssh... trying telnet".format(host=lineHost.strip()))
                 try:
@@ -306,34 +351,41 @@ def main():
                     session.sendline(username)
                     session.expect('.*assword.', timeout=20)
                     session.sendline(password)
-                    session.expect(r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', timeout=20)
+                    session.expect(firstlogin, timeout=20)
                 except:
                     print("Unable to connect to {host} using telnet... giving up\n".format(host=lineHost.strip()))
                     failedhosts.append(lineHost.strip())
                     continue
+            #NEXUS doesn't seem to like this...
+            if not args.c:
+                session.setwinsize(80, 280)
             prompt = session.before
             promptnew = prompt.split('\n')
             prompt = str(promptnew[-1]).strip()
             #strip out Arista stuff
-            prompt = prompt.strip("\x1b[5n")
+            prompt = prompt.replace("\x1b[5n","")
+            #Build prompt for expect
             afterprompt = session.after
-
-            if get_os(session, afterprompt, prompt, args, enablepass):
+            runmatch = prompt + afterprompt
+            stripprompt = "[>#] ?"
+            runmatchfull = runmatch.strip(stripprompt)
+            fullmatch = prompt + ".*[>#] ?"
+            if get_os(session, afterprompt, fullmatch, args, enablepass):
                 if session.isalive():
                     session.sendline("exit")
                 wrongdevicetype.append(lineHost.strip())
                 continue
 
             if args.enable or not args.enable:
-                get_prompt(session, afterprompt, args, enablepass)
+                get_prompt(session, afterprompt, fullmatch, args, enablepass)
                 if not session.isalive():
                     noenable.append(lineHost.strip())
                     continue
-            set_paging(session, prompt, args)
+            set_paging(session, afterprompt, fullmatch, args)
             filesSaved.append(lineHost.strip() + "-" + timestamp)
             results = open(lineHost.strip() + "-" + timestamp, 'w')
             for lineCommand in exCommands:
-                failedcommit = run_command(prompt, lineCommand, results, lineHost, session, args)
+                failedcommit = run_command(runmatchfull, lineCommand, results, lineHost, session, args)
                 if failedcommit:
                     rolledback.append(lineHost.strip())
                     break
