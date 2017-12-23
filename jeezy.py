@@ -223,7 +223,8 @@ def run_command(fullmatch, command, results, lineHost, session, args):
     commitfailed = False
     output = str()
     output += '\n' + '*'*30 + '\n' + 'Host -> ' + lineHost.strip() \
-              + '\nCommand -> ' + command + '\n\n'
+              + '\nCommand -> ' + command + '\n'
+    session.sendline('')
     session.sendline(command)
     time.sleep(1.5)
     if session.isalive():
