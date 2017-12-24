@@ -222,9 +222,7 @@ def run_command(fullmatch, command, results, lineHost, session, args):
     """
     commitfailed = False
     output = str()
-    output += '\n' + '*'*30 + '\n' + 'Host -> ' + lineHost.strip() \
-              + '\nCommand -> ' + command + '\n'
-    session.sendline('')
+
     session.sendline(command)
     time.sleep(1.5)
     if session.isalive():
@@ -244,7 +242,7 @@ def run_command(fullmatch, command, results, lineHost, session, args):
                     output += session.before + session.after
                     commitfailed = True
         if args.v:
-            print(output)
+            print(output, end='')
         results.write(output)
         return commitfailed
 
@@ -385,6 +383,7 @@ def main():
             set_paging(session, afterprompt, fullmatch, args)
             filesSaved.append(lineHost.strip() + "-" + timestamp)
             results = open(lineHost.strip() + "-" + timestamp, 'w')
+            session.sendline('')
             for lineCommand in exCommands:
                 failedcommit = run_command(runmatchfull, lineCommand, results, lineHost, session, args)
                 if failedcommit:
@@ -392,9 +391,10 @@ def main():
                     break
             if session.isalive():
                 session.sendline("exit")
-            output = '\n' + '*'*30 + '\n' + '*'*11 + 'complete' + '*'*11 + '\n' + '*'*30 + '\n'
+
             if args.v:
-                print(output)
+                print('\n' + '*'*30 + '\n' + '*'*11 + 'complete' + '*'*11 + '\n' + '*'*30 + '\n')
+            output = "\n"
             results.write(output)
             results.close()
         if len(filesSaved) > 0:
