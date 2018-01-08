@@ -6,7 +6,6 @@ import pexpect
 import time
 import re
 
-
 _author__ = "Jeremy Scholz"
 
 
@@ -20,7 +19,7 @@ def verify_commands(exCommands, args):
     :return:
 
     """
-    #Check Juniper device commands
+    # Check Juniper device commands
     if args.j:
         findcommit = re.compile('^commit$|^commit comment.*')
         commandsre = filter(findcommit.match, exCommands)
@@ -54,7 +53,7 @@ def get_os(session, afterprompt, fullmatch, args, enablepass):
         session.sendline("show version | include Aruba")
         session.expect(fullmatch, timeout=20)
         aos = session.before
-        aos = re.sub(removeshow,'',aos)
+        aos = re.sub(removeshow, '', aos)
         if "ArubaOS" not in aos:
             print("This is not a Aruba device\n")
             return True
@@ -228,7 +227,7 @@ def run_command(fullmatch, command, results, lineHost, session, args):
     if session.isalive():
         session.expect(fullmatch + r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', timeout=120)
         output += session.before + session.after
-        #check Juniper commit for failures
+        # check Juniper commit for failures
         if args.j:
             if command == "commit check":
                 if "error: configuration check-out failed" in output:
@@ -264,7 +263,7 @@ def main():
     reqhost.add_argument('-d', type=str, help='Host file')
     reqcommand = parser.add_mutually_exclusive_group(required=True)
     reqcommand.add_argument('-command', type=str,
-                        help='Command(s) to run enclosed in \'\', separate multiple commands with comma')
+                            help='Command(s) to run enclosed in \'\', separate multiple commands with comma')
     reqcommand.add_argument('-l', type=str, help='Commands file')
 
     args = parser.parse_args()
@@ -287,7 +286,6 @@ def main():
     password = getpass.getpass("Enter your password: ")
 
     firstlogin = "[^#*][>#] ?$"
-
 
     if args.enable:
         enablepass = getpass.getpass("Enter enable password: ")
@@ -316,7 +314,7 @@ def main():
             verify_commands(exCommands, args)
         elif args.l:
             try:
-                with open (args.l, 'r') as exCommands:
+                with open(args.l, 'r') as exCommands:
                     exCommands = exCommands.read().splitlines()
                     verify_commands(exCommands, args)
             except IOError:
@@ -327,7 +325,7 @@ def main():
             hostList = args.host.split(',')
         elif args.d:
             try:
-                with open (args.d, 'r') as hostList:
+                with open(args.d, 'r') as hostList:
                     hostList = hostList.read().splitlines()
             except IOError:
                 print("ERROR::File not found {hostserror}".format(hostserror=args.d))
@@ -338,14 +336,16 @@ def main():
             try:
                 session = pexpect.spawn(
                     "ssh -l " + username + " -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no "
-                    "-o PubkeyAuthentication=no " + lineHost.strip(), timeout=10, maxread=65535, encoding="utf-8")
+                                           "-o PubkeyAuthentication=no " + lineHost.strip(), timeout=10, maxread=65535,
+                    encoding="utf-8", codec_errors="ignore")
                 session.expect('.*assword.', timeout=20)
                 session.sendline(password)
                 session.expect(firstlogin, timeout=20)
             except:
                 print("Unable to connect to {host} using ssh... trying telnet".format(host=lineHost.strip()))
                 try:
-                    session = pexpect.spawn("telnet " + lineHost.strip(), timeout=10, maxread=65535, encoding="utf-8")
+                    session = pexpect.spawn("telnet " + lineHost.strip(), timeout=10, maxread=65535, encoding="utf-8",
+                                            codec_errors="ignore")
                     session.expect('sername.|ogin.')
                     session.sendline(username)
                     session.expect('.*assword.', timeout=20)
@@ -355,15 +355,15 @@ def main():
                     print("Unable to connect to {host} using telnet... giving up\n".format(host=lineHost.strip()))
                     failedhosts.append(lineHost.strip())
                     continue
-            #NEXUS doesn't seem to like this...
+            # NEXUS doesn't seem to like this...
             if not args.c:
                 session.setwinsize(80, 280)
             prompt = session.before
             promptnew = prompt.split('\n')
             prompt = str(promptnew[-1]).strip()
-            #strip out Arista stuff
-            prompt = prompt.replace("\x1b[5n","")
-            #Build prompt for expect
+            # strip out Arista stuff
+            prompt = prompt.replace("\x1b[5n", "")
+            # Build prompt for expect
             afterprompt = session.after
             runmatch = prompt + afterprompt
             stripprompt = "[>#] ?"
@@ -393,7 +393,7 @@ def main():
                 session.sendline("exit")
 
             if args.v:
-                print('\n' + '*'*30 + '\n' + '*'*11 + 'complete' + '*'*11 + '\n' + '*'*30 + '\n')
+                print('\n' + '*' * 30 + '\n' + '*' * 11 + 'complete' + '*' * 11 + '\n' + '*' * 30 + '\n')
             output = "\n"
             results.write(output)
             results.close()
