@@ -206,7 +206,7 @@ def set_paging(session, afterprompt, fullmatch, args):
         session.expect(fullmatch, timeout=20)
 
 
-def run_command(fullmatch, command, results, lineHost, session, args):
+def run_command(expect_match, command, results, lineHost, session, args):
     """
     This function is the main device interpreter
 
@@ -220,12 +220,27 @@ def run_command(fullmatch, command, results, lineHost, session, args):
 
     """
     commitfailed = False
+    bad_prompt = False
     output = str()
 
     session.sendline(command)
     time.sleep(1.5)
     if session.isalive():
-        session.expect(fullmatch + r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', timeout=120)
+        #session.expect([fullmatch + r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', r'.*[>#%] ?'], timeout=120)
+        try:
+            expect_match = session.expect(expect_match, timeout=5)
+            # if we get prompted to overwrite ios nvram, send a new line to confirm
+            if expect_match == 2:
+                session.sendline()
+        except:
+            output += session.before
+            output += "\nCould not obtain prompt, exiting\n"
+            session.close()
+            bad_prompt = True
+            if args.v:
+                print(output, end='')
+            results.write(output)
+            return commitfailed, bad_prompt
         output += session.before + session.after
         # check Juniper commit for failures
         if args.j:
@@ -243,7 +258,7 @@ def run_command(fullmatch, command, results, lineHost, session, args):
         if args.v:
             print(output, end='')
         results.write(output)
-        return commitfailed
+        return commitfailed, bad_prompt
 
 
 def main():
@@ -275,6 +290,7 @@ def main():
     hosts = ''
     failedhosts = []
     rolledback = []
+    prompt_failed = []
     now = datetime.datetime.now()
     currentDate = now.strftime('%m-%d-%Y')
     currentTime = now.strftime('%H-%M-%S')
@@ -369,6 +385,14 @@ def main():
             stripprompt = "[>#] ?"
             runmatchfull = runmatch.strip(stripprompt)
             fullmatch = prompt + ".*[>#] ?"
+
+            # If adding prompts, append to end of list
+            expect_match = [
+                runmatchfull + r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)',
+                r'\S\D.*[>#%] ?$',
+                'Overwrite the previous NVRAM configuration'
+            ]
+
             if get_os(session, afterprompt, fullmatch, args, enablepass):
                 if session.isalive():
                     session.sendline("exit")
@@ -385,9 +409,13 @@ def main():
             results = open(lineHost.strip() + "-" + timestamp, 'w')
             session.sendline('')
             for lineCommand in exCommands:
-                failedcommit = run_command(runmatchfull, lineCommand, results, lineHost, session, args)
+                failedcommit, bad_prompt = run_command(expect_match, lineCommand, results, lineHost, session, args)
                 if failedcommit:
                     rolledback.append(lineHost.strip())
+                    break
+                elif bad_prompt:
+#                    print("Prompt error, only the below command was run\n" + lineCommand + "\n")
+                    prompt_failed.append(lineHost.strip())
                     break
             if session.isalive():
                 session.sendline("exit")
@@ -420,6 +448,10 @@ def main():
             print("\nThe following hosts were not able to set the enable prompt:\n")
             for notenabled in noenable:
                 print("{nenable}".format(nenable=notenabled))
+        if len(prompt_failed) > 0:
+            print("\nThe following hosts failed to obtain the correct prompt:\n")
+            for pfailed in prompt_failed:
+                print("{failed}".format(failed=pfailed))
     else:
         exit(0)
 
