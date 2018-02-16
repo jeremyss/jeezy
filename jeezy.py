@@ -228,7 +228,7 @@ def run_command(expect_match, command, results, lineHost, session, args):
     if session.isalive():
         #session.expect([fullmatch + r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', r'.*[>#%] ?'], timeout=120)
         try:
-            expect_match = session.expect(expect_match, timeout=5)
+            expect_match = session.expect(expect_match, timeout=120)
             # if we get prompted to overwrite ios nvram, send a new line to confirm
             if expect_match == 2:
                 session.sendline()
