@@ -248,11 +248,11 @@ def run_command(expect_match, command, results, lineHost, session, args):
                 if "error: configuration check-out failed" in output:
                     session.sendline("rollback 0")
                     time.sleep(2)
-                    session.expect(fullmatch, timeout=120)
+                    session.expect(expect_match, timeout=120)
                     output += session.before + session.after
                     session.sendline("exit")
                     time.sleep(2)
-                    session.expect(fullmatch, timeout=120)
+                    session.expect(expect_match, timeout=120)
                     output += session.before + session.after
                     commitfailed = True
         if args.v:
