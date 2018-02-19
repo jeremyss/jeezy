@@ -390,7 +390,8 @@ def main():
             expect_match = [
                 runmatchfull + r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)',
                 r'^[\S\D.*[>#%] ?$',
-                'Overwrite the previous NVRAM configuration'
+                'Overwrite the previous NVRAM configuration',
+                r'[>#%] ?$'
             ]
 
             if get_os(session, afterprompt, fullmatch, args, enablepass):
