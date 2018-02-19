@@ -389,7 +389,7 @@ def main():
             # If adding prompts, append to end of list
             expect_match = [
                 runmatchfull + r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)',
-                r'\S\D.*[>#%] ?$',
+                r'^[\S\D.*[>#%] ?$',
                 'Overwrite the previous NVRAM configuration'
             ]
 
