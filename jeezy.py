@@ -391,7 +391,7 @@ def main():
                 runmatchfull + r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)',
                 r'^[\S\D.*[>#%] ?$',
                 'Overwrite the previous NVRAM configuration',
-                r'[>#%] ?$'
+                r'[^[][>#%] ?$'
             ]
 
             if get_os(session, afterprompt, fullmatch, args, enablepass):
