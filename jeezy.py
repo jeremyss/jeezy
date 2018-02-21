@@ -228,9 +228,9 @@ def run_command(expect_match, command, results, lineHost, session, args):
     if session.isalive():
         #session.expect([fullmatch + r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', r'.*[>#%] ?'], timeout=120)
         try:
-            expect_match = session.expect(expect_match, timeout=120)
+            expect_group = session.expect(expect_match, timeout=120)
             # if we get prompted to overwrite ios nvram, send a new line to confirm
-            if expect_match == 2:
+            if expect_group == 2:
                 session.sendline()
         except:
             output += session.before
@@ -389,8 +389,8 @@ def main():
             # If adding prompts, append to end of list
             expect_match = [
                 runmatchfull + r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)',
-                r'^[\S\D.*[>#%] ?$',
-                'Overwrite the previous NVRAM configuration',
+                r'[^[]\S\D.*[>#%] ?$',
+                'Overwrite the previous NVRAM configuration'
             ]
 
             if get_os(session, afterprompt, fullmatch, args, enablepass):
