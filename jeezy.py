@@ -11,7 +11,6 @@ _author__ = "Jeremy Scholz"
 
 
 def kill_proc():
-    print(proc_pid)
     os.kill(proc_pid, 9)
     exit(130)
 
