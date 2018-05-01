@@ -108,7 +108,7 @@ def get_os(session, afterprompt, fullmatch, args, enablepass):
 
     # Check Brocade device
     if args.b:
-        session.sendline("show version | include |ServerIron")
+        session.sendline("show version | include Brocade|ServerIron")
         session.expect(fullmatch, timeout=20)
         adx = session.before
         adx = re.sub(removeshow, '', adx)
