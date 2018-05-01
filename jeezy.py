@@ -5,9 +5,15 @@ import getpass
 import pexpect
 import time
 import re
+import os
 
 _author__ = "Jeremy Scholz"
 
+
+def kill_proc():
+    print(proc_pid)
+    os.kill(proc_pid, 9)
+    exit(130)
 
 def verify_commands(exCommands, args):
     """
@@ -223,42 +229,45 @@ def run_command(expect_match, command, results, lineHost, session, args):
     bad_prompt = False
     output = str()
 
-    session.sendline(command)
-    time.sleep(1.5)
-    if session.isalive():
-        #session.expect([fullmatch + r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', r'.*[>#%] ?'], timeout=120)
-        try:
-            expect_group = session.expect(expect_match, timeout=120)
-            # if we get prompted to overwrite ios nvram, send a new line to confirm
-            if expect_group == 2:
-                session.sendline()
-        except:
-            output += session.before
-            output += "\nCould not obtain prompt, exiting\n"
-            session.close()
-            bad_prompt = True
+    try:
+        session.sendline(command)
+        time.sleep(1.5)
+        if session.isalive():
+            #session.expect([fullmatch + r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', r'.*[>#%] ?'], timeout=120)
+            try:
+                expect_group = session.expect(expect_match, timeout=120)
+                # if we get prompted to overwrite ios nvram, send a new line to confirm
+                if expect_group == 2:
+                    session.sendline()
+            except:
+                output += session.before
+                output += "\nCould not obtain prompt, exiting\n"
+                session.close()
+                bad_prompt = True
+                if args.v:
+                    print(output, end='')
+                results.write(output)
+                return commitfailed, bad_prompt
+            output += session.before + session.after
+            # check Juniper commit for failures
+            if args.j:
+                if command == "commit check":
+                    if "error: configuration check-out failed" in output:
+                        session.sendline("rollback 0")
+                        time.sleep(2)
+                        session.expect(expect_match, timeout=120)
+                        output += session.before + session.after
+                        session.sendline("exit")
+                        time.sleep(2)
+                        session.expect(expect_match, timeout=120)
+                        output += session.before + session.after
+                        commitfailed = True
             if args.v:
                 print(output, end='')
             results.write(output)
             return commitfailed, bad_prompt
-        output += session.before + session.after
-        # check Juniper commit for failures
-        if args.j:
-            if command == "commit check":
-                if "error: configuration check-out failed" in output:
-                    session.sendline("rollback 0")
-                    time.sleep(2)
-                    session.expect(expect_match, timeout=120)
-                    output += session.before + session.after
-                    session.sendline("exit")
-                    time.sleep(2)
-                    session.expect(expect_match, timeout=120)
-                    output += session.before + session.after
-                    commitfailed = True
-        if args.v:
-            print(output, end='')
-        results.write(output)
-        return commitfailed, bad_prompt
+    except KeyboardInterrupt:
+        kill_proc()
 
 
 def main():
@@ -347,84 +356,87 @@ def main():
                 print("ERROR::File not found {hostserror}".format(hostserror=args.d))
                 exit(0)
 
-        for lineHost in hostList:
-            print("Running commands for {currenthost}...please wait".format(currenthost=lineHost.strip()))
-            try:
-                session = pexpect.spawn(
-                    "ssh -l " + username + " -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no "
-                                           "-o PubkeyAuthentication=no " + lineHost.strip(), timeout=10, maxread=65535,
-                    encoding="utf-8", codec_errors="ignore")
-                session.expect('.*assword.', timeout=20)
-                session.sendline(password)
-                session.expect(firstlogin, timeout=20)
-            except:
-                print("Unable to connect to {host} using ssh... trying telnet".format(host=lineHost.strip()))
+        try:
+            for lineHost in hostList:
+                print("Running commands for {currenthost}...please wait".format(currenthost=lineHost.strip()))
                 try:
-                    session = pexpect.spawn("telnet " + lineHost.strip(), timeout=10, maxread=65535, encoding="utf-8",
-                                            codec_errors="ignore")
-                    session.expect('sername.|ogin.')
-                    session.sendline(username)
+                    session = pexpect.spawn(
+                        "ssh -l " + username + " -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no "
+                                               "-o PubkeyAuthentication=no " + lineHost.strip(), timeout=10, maxread=65535,
+                        encoding="utf-8", codec_errors="ignore")
                     session.expect('.*assword.', timeout=20)
                     session.sendline(password)
                     session.expect(firstlogin, timeout=20)
                 except:
-                    print("Unable to connect to {host} using telnet... giving up\n".format(host=lineHost.strip()))
-                    failedhosts.append(lineHost.strip())
+                    print("Unable to connect to {host} using ssh... trying telnet".format(host=lineHost.strip()))
+                    try:
+                        session = pexpect.spawn("telnet " + lineHost.strip(), timeout=10, maxread=65535, encoding="utf-8",
+                                                codec_errors="ignore")
+                        session.expect('sername.|ogin.')
+                        session.sendline(username)
+                        session.expect('.*assword.', timeout=20)
+                        session.sendline(password)
+                        session.expect(firstlogin, timeout=20)
+                    except:
+                        print("Unable to connect to {host} using telnet... giving up\n".format(host=lineHost.strip()))
+                        failedhosts.append(lineHost.strip())
+                        continue
+                # NEXUS doesn't seem to like this...
+                if not args.c:
+                    session.setwinsize(80, 280)
+                prompt = session.before
+                promptnew = prompt.split('\n')
+                prompt = str(promptnew[-1]).strip()
+                # strip out Arista stuff
+                prompt = prompt.replace("\x1b[5n", "")
+                # Build prompt for expect
+                afterprompt = session.after
+                runmatch = prompt + afterprompt
+                stripprompt = "[>#] ?"
+                runmatchfull = runmatch.strip(stripprompt)
+                fullmatch = prompt + ".*[>#] ?"
+
+                # If adding prompts, append to end of list
+                expect_match = [
+                    runmatchfull + r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)',
+                    r'[^[]\S\D.*[>#%] ?$',
+                    'Overwrite the previous NVRAM configuration'
+                ]
+
+                if get_os(session, afterprompt, fullmatch, args, enablepass):
+                    if session.isalive():
+                        session.sendline("exit")
+                    wrongdevicetype.append(lineHost.strip())
                     continue
-            # NEXUS doesn't seem to like this...
-            if not args.c:
-                session.setwinsize(80, 280)
-            prompt = session.before
-            promptnew = prompt.split('\n')
-            prompt = str(promptnew[-1]).strip()
-            # strip out Arista stuff
-            prompt = prompt.replace("\x1b[5n", "")
-            # Build prompt for expect
-            afterprompt = session.after
-            runmatch = prompt + afterprompt
-            stripprompt = "[>#] ?"
-            runmatchfull = runmatch.strip(stripprompt)
-            fullmatch = prompt + ".*[>#] ?"
 
-            # If adding prompts, append to end of list
-            expect_match = [
-                runmatchfull + r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)',
-                r'[^[]\S\D.*[>#%] ?$',
-                'Overwrite the previous NVRAM configuration'
-            ]
-
-            if get_os(session, afterprompt, fullmatch, args, enablepass):
+                if args.enable or not args.enable:
+                    get_prompt(session, afterprompt, fullmatch, args, enablepass)
+                    if not session.isalive():
+                        noenable.append(lineHost.strip())
+                        continue
+                set_paging(session, afterprompt, fullmatch, args)
+                filesSaved.append(lineHost.strip() + "-" + timestamp)
+                results = open(lineHost.strip() + "-" + timestamp, 'w')
+                session.sendline('')
+                for lineCommand in exCommands:
+                    failedcommit, bad_prompt = run_command(expect_match, lineCommand, results, lineHost, session, args)
+                    if failedcommit:
+                        rolledback.append(lineHost.strip())
+                        break
+                    elif bad_prompt:
+    #                    print("Prompt error, only the below command was run\n" + lineCommand + "\n")
+                        prompt_failed.append(lineHost.strip())
+                        break
                 if session.isalive():
                     session.sendline("exit")
-                wrongdevicetype.append(lineHost.strip())
-                continue
 
-            if args.enable or not args.enable:
-                get_prompt(session, afterprompt, fullmatch, args, enablepass)
-                if not session.isalive():
-                    noenable.append(lineHost.strip())
-                    continue
-            set_paging(session, afterprompt, fullmatch, args)
-            filesSaved.append(lineHost.strip() + "-" + timestamp)
-            results = open(lineHost.strip() + "-" + timestamp, 'w')
-            session.sendline('')
-            for lineCommand in exCommands:
-                failedcommit, bad_prompt = run_command(expect_match, lineCommand, results, lineHost, session, args)
-                if failedcommit:
-                    rolledback.append(lineHost.strip())
-                    break
-                elif bad_prompt:
-#                    print("Prompt error, only the below command was run\n" + lineCommand + "\n")
-                    prompt_failed.append(lineHost.strip())
-                    break
-            if session.isalive():
-                session.sendline("exit")
-
-            if args.v:
-                print('\n' + '*' * 30 + '\n' + '*' * 11 + 'complete' + '*' * 11 + '\n' + '*' * 30 + '\n')
-            output = "\n"
-            results.write(output)
-            results.close()
+                if args.v:
+                    print('\n' + '*' * 30 + '\n' + '*' * 11 + 'complete' + '*' * 11 + '\n' + '*' * 30 + '\n')
+                output = "\n"
+                results.write(output)
+                results.close()
+        except KeyboardInterrupt:
+            kill_proc()
         if len(filesSaved) > 0:
             if len(hostList) > 1:
                 print("\nFiles saved to\n")
@@ -457,8 +469,8 @@ def main():
 
 
 if __name__ == '__main__':
+    proc_pid = os.getpid()
     try:
         main()
     except KeyboardInterrupt:
-        print()
-        exit(130)
+        kill_proc()
