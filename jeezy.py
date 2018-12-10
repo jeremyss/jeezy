@@ -230,7 +230,7 @@ def run_command(expect_match, command, results, lineHost, session, args):
 
     try:
         session.sendline(command)
-        time.sleep(1.5)
+        time.sleep(.5)
         if session.isalive():
             #session.expect([fullmatch + r'(> *$|# *$|% *$|(.*)> *$|(.*)# *$|(.*)% *$)', r'.*[>#%] ?'], timeout=120)
             try:
