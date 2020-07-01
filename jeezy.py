@@ -328,7 +328,7 @@ def main():
             print("Host list: {hostlist}".format(hostlist=args.host))
         elif args.d:
             print("Host file: {hostfile}".format(hostfile=args.d))
-        runScript = input("script will run with the above configuration... procede? Y/N: ")
+        runScript = input("script will run with the above configuration... proceed? Y/N: ")
         runScript = str.lower(runScript)
 
     if runScript == "y":
